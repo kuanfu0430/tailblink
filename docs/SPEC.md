@@ -46,6 +46,14 @@
 
 GitHub macOS runner 未登入 iCloud，無法直接執行 Apple Shortcuts 簽署。本次四支公開捷徑模板使用 Cherri 所採用的 RoutineHub HubSign 服務完成簽署，再以 macOS `aea`／`aa` 解封，逐一比對來源動作與 manifest。未傳送任何使用者剪貼簿、實際網址或配對憑證；此服務不是 TailBlink 執行時依賴。既有 `sign.py`／`sign_simple.py` 仍使用開發者自己的 macOS Apple CLI，不加入隱性遠端 fallback。
 
+## 0.2 倉庫名稱與本機同步（2026-09-13）
+
+依使用者本次授權，本機直接在 `main` 快轉同步 GitHub 最新進度 `cfc1882`，不建立新分支。既有完整更名與 alpha.3 安裝包已在上游完成，本次補齊 GitHub 倉庫名稱 `tailblink`、產品描述、canonical URL `https://github.com/kuanfu0430/tailblink` 與本機 origin，使其符合現行 Go module 與產品名稱。
+
+將來源預設版本標記由前一版對齊 `v0.2.0-alpha.3-dev`，避免未帶發行 ldflags 的建置回報過時版本。先驗證目前來源、名稱掃描、四支簽署捷徑及兩平台安裝包；不改寫歷史 commit、標籤、過往 Release 或已驗證安裝包的 SOURCE.txt。完成後直接提交並推送 main。Windows 本機實測由使用者另行進行；交叉編譯與雲端 CI 不等同實體桌面驗收。
+
+本次結果：倉庫名稱／描述與 origin 已更新；98 個追蹤檔案、含封裝共 126 個項目的名稱掃描零殘留。Go vet／race、Windows vet／測試交叉編譯、兩平台建置、12 項捷徑測試、2 項封裝測試、四支簽署語意及 alpha.3 兩包完整性驗證均通過。僅修正預設開發版本與倉庫文件，不需重簽捷徑或重建既有 alpha.3 發行包。
+
 ## 1. 產品目標
 
 TailBlink 讓使用者在 iPhone 與 Windows／Linux 電腦之間手動傳送目前的純文字剪貼簿。它利用既有的 Tailscale 私有網路，不建立公開中繼站、帳號系統或剪貼簿歷史。

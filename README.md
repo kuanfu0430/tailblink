@@ -4,6 +4,8 @@ TailBlink 是透過 Tailscale 私有網路或臨時 HTTPS 隧道，連接 iPhone
 
 > 目前為未簽章的 alpha 測試版。Windows 可能顯示 SmartScreen 警告。自動化測試與交叉編譯不等於 iPhone／桌面實機驗收。
 
+官方倉庫：[kuanfu0430/tailblink](https://github.com/kuanfu0430/tailblink)。
+
 ## 下載與安裝
 
 更名版：**v0.2.0-alpha.3**。請完整解壓套件，不要只取出主程式，附帶的 `tailblink-cloudflared-*` 是簡易連線所需的隧道程式。
