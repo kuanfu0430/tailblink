@@ -119,6 +119,8 @@ type DashboardData struct {
 
 func RenderDashboard(w http.ResponseWriter, data DashboardData) error {
 	setPrivateHeaders(w)
+	// 保留同源表單的 Origin；對外連結仍不送出含設定頁識別碼的 Referer。
+	w.Header().Set("Referrer-Policy", "same-origin")
 	var png []byte
 	if data.PairingURL != "" {
 		var err error

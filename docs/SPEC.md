@@ -54,6 +54,14 @@ GitHub macOS runner 未登入 iCloud，無法直接執行 Apple Shortcuts 簽署
 
 本次結果：倉庫名稱／描述與 origin 已更新；98 個追蹤檔案、含封裝共 126 個項目的名稱掃描零殘留。Go vet／race、Windows vet／測試交叉編譯、兩平台建置、12 項捷徑測試、2 項封裝測試、四支簽署語意及 alpha.3 兩包完整性驗證均通過。僅修正預設開發版本與倉庫文件，不需重簽捷徑或重建既有 alpha.3 發行包。
 
+## 0.3 本機設定表單誤判跨站（2026-09-14）
+
+使用者在 Windows 回報 alpha.3 重裝後選擇連線均被拒絕。Chromium 類瀏覽器在 `Referrer-Policy: no-referrer` 下以一般表單 POST 會送出 `Origin: null`，與本機設定頁的 Origin 檢查衝突。以 Mac Brave 的隔離設定頁重現同一錯誤。
+
+本機 dashboard HTML 改用 `Referrer-Policy: same-origin`，使同源表單帶正確 Origin，跨來源連結仍不送 Referer；公開配對頁維持 no-referrer，Origin null／錯誤來源仍拒絕，不放寬 CSRF 邊界。新增回歸驗證一般設定操作與撤銷路由，修正版為 `v0.2.0-alpha.4`，重建完整 Windows／Linux 包；手機捷徑不變，從 alpha.3 升級不需刪除設定或重新安裝捷徑。Windows 實機仍由使用者確認。
+
+本次驗證：新增回歸測試在修正前失敗、修正後通過；Mac Brave 的兩個原生表單按鈕均觸發隔離 Configure callback 並返回設定頁，沒有 403。測試涵蓋四種 action、撤銷路由及 null／跨來源／重複 Origin 拒絕；公開頁仍為 no-referrer。Go race／vet、Windows 測試交叉編譯、捷徑與封裝測試通過。
+
 ## 1. 產品目標
 
 TailBlink 讓使用者在 iPhone 與 Windows／Linux 電腦之間手動傳送目前的純文字剪貼簿。它利用既有的 Tailscale 私有網路，不建立公開中繼站、帳號系統或剪貼簿歷史。
@@ -480,9 +488,9 @@ Windows alpha 只有在「下載後雙擊一次、至多一次必要 UAC、iPhon
 
 ## 11. 發布
 
-目前完整更名測試版為 **v0.2.0-alpha.3**，Windows 與 Linux 安裝包的程式及捷徑來自乾淨來源 commit `d2ec58333f7283d17e269ffeb18cfed34a7896ce`。後續純文件修正不改變套件的來源追溯記錄；套件內 `SOURCE.txt` 始終記錄實際建置來源，不以較新的文件 commit 冒充。
+目前設定頁修正版為 **v0.2.0-alpha.4**，Windows 與 Linux 完整包由修正後乾淨來源 commit 重建，實際 commit 記錄於套件內 `SOURCE.txt`。先前 alpha.3 的建置來源為 `d2ec58333f7283d17e269ffeb18cfed34a7896ce`；不覆寫歷史套件的來源追溯記錄。
 
-目前 Git 工作樹追蹤 `dist/TailBlink-v0.2.0-alpha.3-windows-x64.zip`、`dist/TailBlink-v0.2.0-alpha.3-linux-x64.tar.gz` 及兩者 `.sha256`。舊版套件只保留在 Git 歷史及既有 Release，不留在目前檔案樹；早期 alpha.6／alpha.7 的相容性及本機建置紀錄不能套用到完整更名版本。
+目前 Git 工作樹追蹤 `dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip`、`dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz` 及兩者 `.sha256`。舊版套件只保留在 Git 歷史及既有 Release，不留在目前檔案樹；早期 alpha.6／alpha.7 的相容性及本機建置紀錄不能套用到完整更名版本。
 
 Windows 套件包含 `TailBlink.exe`、已核對雜湊的 `tailblink-cloudflared-*`、第三方授權、`README-Windows.txt`、`Start-TailBlink.cmd`、`Uninstall-TailBlink.cmd`、四支 signed Shortcuts、`VERSION.txt`、`SOURCE.txt` 與涵蓋全部附帶檔案的 `SHA256SUMS.txt`。完整解壓後直接雙擊 EXE，不要求終端機或 Go toolchain；CMD 入口維持 ASCII／CRLF 及完整引號路徑。
 

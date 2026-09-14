@@ -8,10 +8,12 @@ TailBlink 是透過 Tailscale 私有網路或臨時 HTTPS 隧道，連接 iPhone
 
 ## 下載與安裝
 
-更名版：**v0.2.0-alpha.3**。請完整解壓套件，不要只取出主程式，附帶的 `tailblink-cloudflared-*` 是簡易連線所需的隧道程式。
+設定頁修正版：**v0.2.0-alpha.4**。請完整解壓套件，不要只取出主程式，附帶的 `tailblink-cloudflared-*` 是簡易連線所需的隧道程式。
 
-- [Windows x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.3-windows-x64.zip)（[SHA-256](dist/TailBlink-v0.2.0-alpha.3-windows-x64.zip.sha256)）：解壓後雙擊 `TailBlink.exe`。不需安裝 Go 或其他 runtime。
-- [Linux x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.3-linux-x64.tar.gz)（[SHA-256](dist/TailBlink-v0.2.0-alpha.3-linux-x64.tar.gz.sha256)）：在 Debian 13／Ubuntu 26.04 的 GNOME Wayland 桌面解壓後執行 `bash install.sh`；安裝器按需安裝 `wl-clipboard` 並建立使用者服務。
+- [Windows x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip)（[SHA-256](dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip.sha256)）：解壓後雙擊 `TailBlink.exe`。不需安裝 Go 或其他 runtime。
+- [Linux x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz)（[SHA-256](dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz.sha256)）：在 Debian 13／Ubuntu 26.04 的 GNOME Wayland 桌面解壓後執行 `bash install.sh`；安裝器按需安裝 `wl-clipboard` 並建立使用者服務。
+
+alpha.4 修正按「使用現有 Tailscale」或「重新連接」時誤報跨網站操作。從 alpha.3 升級請完整解壓並執行新版，關閉舊網頁後由通知區重新開啟設定頁；不用刪除設定或重裝手機捷徑。
 
 套件內 `SHA256SUMS.txt` 涵蓋全部附帶檔案；`SOURCE.txt` 記錄建置所用的原始碼 commit。
 

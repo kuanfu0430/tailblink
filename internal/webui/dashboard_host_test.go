@@ -143,3 +143,74 @@ func TestDashboardHostOpensOnDemandAndRotates(t *testing.T) {
 		t.Fatal("輪替後應使用新的不可猜測頁面")
 	}
 }
+
+func TestDashboardFormsKeepSameOriginAndRejectOpaqueOrigin(t *testing.T) {
+	host := NewDashboardHost("127.0.0.1:0")
+	t.Cleanup(func() { host.Close() })
+	var calls atomic.Int32
+	provider := func(_ context.Context, rotate bool) (DashboardData, error) {
+		if rotate {
+			calls.Add(1)
+		}
+		return DashboardData{Mode: "simple", Configure: func(context.Context, string) error { calls.Add(1); return nil }}, nil
+	}
+	page, err := host.Open(context.Background(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	response, err := client.Get(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.Header.Get("Referrer-Policy") != "same-origin" {
+		t.Fatal("一般表單可能產生 Origin null，正常操作會被誤拒絕")
+	}
+	origin := page[:strings.Index(page, "/dashboard/")]
+	for _, route := range []string{"action", "rotate"} {
+		for _, bad := range [][]string{{"null"}, {"https://untrusted.example"}, {origin, origin}} {
+			req, _ := http.NewRequest("POST", page+"/"+route, strings.NewReader("action=pair"))
+			for _, value := range bad {
+				req.Header.Add("Origin", value)
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res.Body.Close()
+			if res.StatusCode != 403 || calls.Load() != 0 {
+				t.Fatal("不可信來源變更了設定", route, bad)
+			}
+		}
+	}
+	for _, action := range []string{"tailscale", "simple", "pair", "revoke"} {
+		req, _ := http.NewRequest("POST", page+"/action", strings.NewReader("action="+action))
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 303 {
+			t.Fatal(action, res.StatusCode)
+		}
+	}
+	req, _ := http.NewRequest("POST", page+"/rotate", nil)
+	req.Header.Set("Origin", origin)
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 303 || calls.Load() != 5 {
+		t.Fatal("合法表單未完成操作")
+	}
+	public := httptest.NewRecorder()
+	setPrivateHeaders(public)
+	if public.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Fatal("公開頁隱私策略被改動")
+	}
+}

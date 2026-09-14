@@ -1,4 +1,6 @@
-TailBlink v0.2.0-alpha.3 Windows x64 完整更名測試版
+alpha.4 修正設定頁表單誤報跨網站操作。從 alpha.3 升級請完整解壓並執行新版，關閉舊設定頁後重新開啟；不需刪除設定或重裝手機捷徑。
+
+TailBlink v0.2.0-alpha.4 Windows x64 完整更名測試版
 =================================================
 
 請完整解壓套件，保留 tailblink-cloudflared-*，再雙擊 TailBlink.exe。
