@@ -44,6 +44,9 @@ func uninstallAction(context.Context, string) error {
 	return errors.New("Debian／Ubuntu 請使用 release 內的 uninstall.sh，避免留下 systemd user service")
 }
 
+// Linux 的舊版 systemd 服務由 install.sh 停用，Agent 啟動時不需處理。
+func retireLegacyAgent(context.Context) error { return nil }
+
 func startDetached(executable string, args ...string) error {
 	command := exec.Command(executable, args...)
 	command.Stdin = nil

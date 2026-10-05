@@ -77,7 +77,7 @@ func (h *DashboardHost) Open(ctx context.Context, provider DashboardProvider) (s
 
 func (h *DashboardHost) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	setPrivateHeaders(w)
-	if !requestIsLoopback(r) {
+	if !RequestIsLoopback(r) {
 		http.Error(w, "只允許從這台電腦開啟。", http.StatusForbidden)
 		return
 	}
@@ -224,7 +224,8 @@ func randomID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-func requestIsLoopback(r *http.Request) bool {
+// RequestIsLoopback 要求連線來源與 Host 都是 loopback，擋下 DNS rebinding。
+func RequestIsLoopback(r *http.Request) bool {
 	remoteHost, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil || !net.ParseIP(remoteHost).IsLoopback() {
 		return false

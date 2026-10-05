@@ -37,7 +37,6 @@ func (c Config) Mode() string {
 	}
 	return c.ConnectionMode
 }
-func (s *Store) Path() string { return s.path }
 
 // Store 讓 API 與設定頁安全共享最新設定。
 type Store struct {
@@ -67,15 +66,14 @@ func (s *Store) Update(update func(*Config) error) error {
 	if err := update(&next); err != nil {
 		return err
 	}
+	if next == s.cfg {
+		return nil
+	}
 	if err := Save(s.path, next); err != nil {
 		return err
 	}
 	s.cfg = next
 	return nil
-}
-
-func (s *Store) RotateToken() error {
-	return s.Update(func(cfg *Config) error { return cfg.RotateToken() })
 }
 
 func DefaultPath() (string, error) {

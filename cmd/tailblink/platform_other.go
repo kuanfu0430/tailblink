@@ -23,6 +23,8 @@ func uninstallAction(context.Context, string) error {
 	return errors.New("此平台沒有解除安裝流程")
 }
 
+func retireLegacyAgent(context.Context) error { return nil }
+
 func startDetached(executable string, args ...string) error {
 	command := exec.Command(executable, args...)
 	command.Stdin = nil

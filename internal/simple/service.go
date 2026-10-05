@@ -287,9 +287,7 @@ func (b *bufferedResponse) Write(data []byte) (int, error) {
 	return b.body.Write(data)
 }
 func (s *Service) authorizedLocked(r *http.Request) bool {
-	expected := "Bearer " + s.credential
-	actual := r.Header.Get("Authorization")
-	return s.paired && s.credential != "" && len(r.Header.Values("Authorization")) == 1 && len(actual) == len(expected) && subtle.ConstantTimeCompare([]byte(actual), []byte(expected)) == 1
+	return s.paired && api.BearerMatches(r, s.credential)
 }
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, max-age=0")
@@ -349,7 +347,7 @@ func (s *Service) serveBuffered(w http.ResponseWriter, r *http.Request) {
 		s.pageLocked(w, r)
 		return
 	}
-	if len(r.Header.Values("Origin")) != 0 || len(r.Header.Values("Sec-Fetch-Site")) != 0 || len(r.Header.Values(api.ShortcutClientHeader)) != 0 {
+	if len(r.Header.Values("Origin")) != 0 || len(r.Header.Values("Sec-Fetch-Site")) != 0 {
 		simpleError(w, 403, "請使用簡易捷徑操作")
 		return
 	}

@@ -58,30 +58,17 @@ func (s *Synchronized) WriteText(ctx context.Context, text string) error {
 
 // Memory 是自動測試使用的記憶體剪貼簿。
 type Memory struct {
-	mu        sync.RWMutex
-	text      string
-	available bool
+	mu   sync.RWMutex
+	text string
 }
 
-func NewMemory() *Memory {
-	return &Memory{available: true}
-}
+func NewMemory() *Memory { return &Memory{} }
 
-func (m *Memory) Available(context.Context) error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if !m.available {
-		return ErrUnavailable
-	}
-	return nil
-}
+func (m *Memory) Available(context.Context) error { return nil }
 
 func (m *Memory) ReadText(context.Context) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if !m.available {
-		return "", ErrUnavailable
-	}
 	if m.text == "" {
 		return "", ErrNoText
 	}
@@ -91,15 +78,6 @@ func (m *Memory) ReadText(context.Context) (string, error) {
 func (m *Memory) WriteText(_ context.Context, text string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.available {
-		return ErrUnavailable
-	}
 	m.text = text
 	return nil
-}
-
-func (m *Memory) SetAvailable(available bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.available = available
 }

@@ -261,3 +261,29 @@ func TestClipboardErrorMapping(t *testing.T) {
 		}
 	}
 }
+
+func TestBearerMatches(t *testing.T) {
+	const token = "secret-token"
+	for name, tc := range map[string]struct {
+		headers []string
+		token   string
+		want    bool
+	}{
+		"match":         {[]string{"Bearer " + token}, token, true},
+		"wrong":         {[]string{"Bearer other"}, token, false},
+		"missing":       {nil, token, false},
+		"no scheme":     {[]string{token}, token, false},
+		"duplicate":     {[]string{"Bearer " + token, "Bearer " + token}, token, false},
+		"empty token":   {[]string{"Bearer "}, "", false},
+		"lower prefix":  {[]string{"bearer " + token}, token, false},
+		"trailing data": {[]string{"Bearer " + token + "x"}, token, false},
+	} {
+		r := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
+		for _, value := range tc.headers {
+			r.Header.Add("Authorization", value)
+		}
+		if got := BearerMatches(r, tc.token); got != tc.want {
+			t.Errorf("%s: got %v, want %v", name, got, tc.want)
+		}
+	}
+}

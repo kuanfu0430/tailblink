@@ -1,16 +1,19 @@
-alpha.4 修正設定頁表單誤報跨網站操作。從 alpha.3 升級請完整解壓並執行新版，關閉舊設定頁後重新開啟；不需刪除設定或重裝手機捷徑。
+alpha.5 修正每次重開機都要重新配對：舊名稱版本的自啟會在開機時搶走連接埠。
+新版啟動時自動停用舊版自啟並結束舊版程式。從 alpha.3／alpha.4 升級請完整解壓
+並雙擊新版 TailBlink.exe；配對與手機捷徑保留，不需重新配對。
 
-TailBlink v0.2.0-alpha.4 Windows x64 完整更名測試版
+TailBlink v0.2.0-alpha.5 Windows x64 測試版
 =================================================
 
 請完整解壓套件，保留 tailblink-cloudflared-*，再雙擊 TailBlink.exe。
 不需安裝 Go。未購買 Windows code signing，SmartScreen 可能顯示警告。
 
 從先前命名版本升級：
-先使用原版附帶的解除安裝程式移除桌面端，再安裝 TailBlink。
+建議先用原版附帶的解除安裝程式移除桌面端，再安裝 TailBlink。
 本次更名包含設定目錄、自啟項目、Serve 路徑、配對標記與捷徑。
 原版捷徑及配對不相容；請移除原版捷徑，從新版 QR 頁安裝並重新配對。
-不自動搬移原版 token，也不偷偷刪除原版設定。勿讓兩個版本同時執行。
+若忘了移除，TailBlink 啟動時會停用原版自啟並結束原版程式；
+不搬移原版 token，也不刪除原版設定與 Serve 路徑。
 
 已有 Tailscale：
 1. Windows 與 iPhone 安裝 Tailscale、登入同一 tailnet 並連線。

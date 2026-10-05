@@ -34,6 +34,7 @@ test -x "$root/.local/bin/tailblink-cloudflared-123456789abc"
 cmp "$root/package/tailblink-cloudflared-123456789abc" "$root/.local/bin/tailblink-cloudflared-123456789abc"
 test -r "$root/.config/systemd/user/tailblink.service"
 grep -qx -- '--user restart tailblink.service' "$TEST_LOG"
+grep -qx -- '--user disable --now tailclip.service' "$TEST_LOG"
 grep -qx 'binary:open' "$TEST_LOG"
 # 再跑一次驗證更新流程，不要求 Tailscale 或額外互動。
 bash "$root/package/install.sh"

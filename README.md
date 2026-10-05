@@ -8,12 +8,12 @@ TailBlink 是透過 Tailscale 私有網路或臨時 HTTPS 隧道，連接 iPhone
 
 ## 下載與安裝
 
-設定頁修正版：**v0.2.0-alpha.4**。請完整解壓套件，不要只取出主程式，附帶的 `tailblink-cloudflared-*` 是簡易連線所需的隧道程式。
+目前版本：**v0.2.0-alpha.5**。請完整解壓套件，不要只取出主程式，附帶的 `tailblink-cloudflared-*` 是簡易連線所需的隧道程式。
 
-- [Windows x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip)（[SHA-256](dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip.sha256)）：解壓後雙擊 `TailBlink.exe`。不需安裝 Go 或其他 runtime。
-- [Linux x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz)（[SHA-256](dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz.sha256)）：在 Debian 13／Ubuntu 26.04 的 GNOME Wayland 桌面解壓後執行 `bash install.sh`；安裝器按需安裝 `wl-clipboard` 並建立使用者服務。
+- [Windows x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.5-windows-x64.zip)（[SHA-256](dist/TailBlink-v0.2.0-alpha.5-windows-x64.zip.sha256)）：解壓後雙擊 `TailBlink.exe`。不需安裝 Go 或其他 runtime。
+- [Linux x64 完整安裝包](dist/TailBlink-v0.2.0-alpha.5-linux-x64.tar.gz)（[SHA-256](dist/TailBlink-v0.2.0-alpha.5-linux-x64.tar.gz.sha256)）：在 Debian 13／Ubuntu 26.04 的 GNOME Wayland 桌面解壓後執行 `bash install.sh`；安裝器按需安裝 `wl-clipboard` 並建立使用者服務。
 
-alpha.4 修正按「使用現有 Tailscale」或「重新連接」時誤報跨網站操作。從 alpha.3 升級請完整解壓並執行新版，關閉舊網頁後由通知區重新開啟設定頁；不用刪除設定或重裝手機捷徑。
+alpha.5 修正「每次重開機都要重新配對」：原因是更名前的舊版仍設為開機自啟，開機時搶走 TailBlink 的連接埠。新版啟動時會自動停用舊版自啟並結束舊版程式。從 alpha.3／alpha.4 升級請完整解壓並雙擊新版 EXE；配對與手機捷徑都保留，不需重新配對。
 
 套件內 `SHA256SUMS.txt` 涵蓋全部附帶檔案；`SOURCE.txt` 記錄建置所用的原始碼 commit。
 
@@ -21,7 +21,7 @@ alpha.4 修正按「使用現有 Tailscale」或「重新連接」時誤報跨�
 
 本次是完整更名，執行檔、設定目錄、服務、自啟項目、Serve 路徑、配對格式及四支捷徑都改用 TailBlink。不提供舊名稱相容別名，也不自動搬移舊 token。
 
-**先使用原版附帶的解除安裝程式移除桌面端，再安裝新版。** 這可避免原版程序占用相同連接埠或留下原版自啟與 Serve 路徑。手機端移除原版捷徑，從新版 QR 頁安裝 TailBlink 捷徑並重新配對；原版的設定檔不會由新版偷偷刪除。
+建議先用原版附帶的解除安裝程式移除桌面端，再安裝新版。若忘了移除，TailBlink 啟動時會自動停用原版自啟並結束原版程式，避免兩者搶同一個連接埠；原版的 Serve 路徑與檔案則保留，仍可之後用原版解除安裝程式清除。手機端移除原版捷徑，從新版 QR 頁安裝 TailBlink 捷徑並重新配對。
 
 ## 兩種連線入口
 
@@ -51,7 +51,7 @@ Windows 通知區圖示可開啟設定頁、切換登入後自啟或結束程式
 
 ## 開發文件
 
-架構、API、安全邊界、實作決策與驗收範圍見 [技術與產品規格](docs/SPEC.md)。可用 `python3 tools/check_branding.py` 檢查目前工作樹及套件中的名稱殘留；macOS 另執行 `python3 shortcuts/sign.py --verify` 與 `python3 shortcuts/sign_simple.py --verify` 驗證已簽署捷徑與來源一致。
+架構、API、安全邊界、實作決策與驗收範圍見 [技術與產品規格](docs/SPEC.md)。macOS 可執行 `python3 shortcuts/sign.py --verify` 與 `python3 shortcuts/sign_simple.py --verify` 驗證已簽署捷徑與來源一致。
 
 ## 授權與商標
 

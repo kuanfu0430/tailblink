@@ -35,7 +35,6 @@ type Server struct {
 	clipboard clipboard.Backend
 	logger    *slog.Logger
 	limiter   *rateLimiter
-	owner     OwnerIdentity
 }
 
 type Options struct {
@@ -45,7 +44,6 @@ type Options struct {
 	RateLimit  int
 	RateWindow time.Duration
 	LimiterNow func() time.Time
-	Owner      OwnerIdentity
 }
 
 func New(options Options) *Server {
@@ -70,7 +68,6 @@ func New(options Options) *Server {
 		clipboard: options.Clipboard,
 		logger:    logger,
 		limiter:   limiter,
-		owner:     options.Owner,
 	}
 }
 
@@ -87,16 +84,11 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "這個端點只接受 GET。")
 		return
 	}
-	capabilities := []string{"bearer_v1"}
-	if s.owner != nil {
-		capabilities = append(capabilities, "tailscale_user_v1")
-	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":        "ok",
 		"service":       "tailblink-agent",
 		"api_version":   1,
 		"agent_version": buildinfo.Version,
-		"capabilities":  capabilities,
 	})
 }
 
@@ -114,10 +106,10 @@ func (s *Server) protected(direction string, next http.HandlerFunc) http.Handler
 			s.log(direction, bytesCount, statusCode, errorCode, time.Since(started))
 			return
 		}
-		if authError := s.authorize(r); authError != nil {
-			statusCode = authError.status
-			errorCode = authError.code
-			writeError(w, statusCode, errorCode, authError.message)
+		if !BearerMatches(r, s.config.Snapshot().PairingToken) {
+			statusCode = http.StatusUnauthorized
+			errorCode = "not_paired"
+			writeError(w, statusCode, errorCode, "配對已失效，請在電腦上重新顯示配對 QR。")
 			s.log(direction, bytesCount, statusCode, errorCode, time.Since(started))
 			return
 		}
@@ -133,15 +125,11 @@ func (s *Server) protected(direction string, next http.HandlerFunc) http.Handler
 	}
 }
 
-func (s *Server) authorized(r *http.Request) bool {
-	const prefix = "Bearer "
-	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, prefix) {
-		return false
-	}
-	provided := strings.TrimPrefix(header, prefix)
-	expected := s.config.Snapshot().PairingToken
-	return len(provided) == len(expected) && subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) == 1
+// BearerMatches 以固定時間比對唯一的 Authorization header；空 token 一律拒絕。
+func BearerMatches(r *http.Request, token string) bool {
+	values := r.Header.Values("Authorization")
+	return token != "" && len(values) == 1 &&
+		subtle.ConstantTimeCompare([]byte(values[0]), []byte("Bearer "+token)) == 1
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {

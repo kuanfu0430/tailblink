@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,14 +92,6 @@ func New(options Options) (*Agent, error) {
 	mux.HandleFunc("/local/shutdown", agent.shutdown)
 	apiHandler := api.New(api.Options{
 		Config: options.Store, Clipboard: agent.clipboard, Logger: logger,
-		Owner: func(ctx context.Context) (string, string, error) {
-			status, err := agent.tailnet.Status(ctx)
-			if err != nil {
-				return "", "", err
-			}
-			login, err := status.OwnerLogin()
-			return login, status.Self.DNSName, err
-		},
 	}).Handler()
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/health" && agent.store.Snapshot().Mode() != "tailscale" {
@@ -174,7 +165,7 @@ func (a *Agent) Run(ctx context.Context, address string) error {
 func (a *Agent) shutdown(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.Method != http.MethodPost || !webuiRequestIsLocal(r) || !a.controlAuthorized(r) {
+	if r.Method != http.MethodPost || !a.localControl(r) {
 		writeControlError(w, http.StatusForbidden, "只允許這台電腦停止 Agent。")
 		return
 	}
@@ -190,7 +181,7 @@ func (a *Agent) openSetup(w http.ResponseWriter, r *http.Request) {
 		writeControlError(w, http.StatusMethodNotAllowed, "這個操作只接受 POST。")
 		return
 	}
-	if !webuiRequestIsLocal(r) || !a.controlAuthorized(r) {
+	if !a.localControl(r) {
 		writeControlError(w, http.StatusForbidden, "只允許這台電腦開啟設定頁。")
 		return
 	}
@@ -329,27 +320,9 @@ func (a *Agent) configureConnection(ctx context.Context, action string) error {
 	return nil
 }
 
-func (a *Agent) controlAuthorized(r *http.Request) bool {
-	const prefix = "Bearer "
-	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, prefix) {
-		return false
-	}
-	provided := strings.TrimPrefix(header, prefix)
-	expected := a.store.Snapshot().PairingToken
-	return len(provided) == len(expected) && subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) == 1
-}
-
-func webuiRequestIsLocal(r *http.Request) bool {
-	remoteHost, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil || !net.ParseIP(remoteHost).IsLoopback() {
-		return false
-	}
-	host := r.Host
-	if parsed, _, splitErr := net.SplitHostPort(r.Host); splitErr == nil {
-		host = parsed
-	}
-	return net.ParseIP(strings.Trim(host, "[]")).IsLoopback()
+// localControl 只接受本機程序以本產品 token 發出的控制請求。
+func (a *Agent) localControl(r *http.Request) bool {
+	return webui.RequestIsLoopback(r) && api.BearerMatches(r, a.store.Snapshot().PairingToken)
 }
 
 func writeControlError(w http.ResponseWriter, status int, message string) {

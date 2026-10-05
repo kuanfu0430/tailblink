@@ -95,3 +95,28 @@ func TestStoreUpdatePersists(t *testing.T) {
 		t.Fatal("更新應同時保存至記憶體與磁碟")
 	}
 }
+
+func TestStoreUpdateSkipsUnchangedConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	store, _, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	// 開設定頁會以相同值更新；不應重寫設定檔。
+	device := store.Snapshot().TailscaleDevice
+	if err := store.Update(func(cfg *Config) error { cfg.TailscaleDevice = device; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("內容未變仍重寫設定檔")
+	}
+	if err := store.Update(func(cfg *Config) error { cfg.TailscaleDevice = "changed"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if loaded, err := Load(path); err != nil || loaded.TailscaleDevice != "changed" {
+		t.Fatal("內容改變時應保存", err)
+	}
+}

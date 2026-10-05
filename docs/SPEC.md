@@ -1,7 +1,7 @@
 # TailBlink 技術與產品規格
 
-- **文件版本：** 0.7
-- **日期：** 2026-09-11
+- **文件版本：** 0.8
+- **日期：** 2026-10-05
 - **專案狀態：** v0.1-alpha 開發中；M2 單主機雙入口實作中；新增 Debian 13 GNOME Wayland 驗收範圍
 - **首版平台：** iOS 26、Windows 11 x64、Ubuntu 26.04 x86_64 GNOME Wayland
 - **傳輸：** HTTPS over Tailscale Serve
@@ -26,6 +26,7 @@
 - [x] `v0.1.0-alpha.6` 重建兩支捷徑：明確 UUID 資料流、設定驗證、固定 config.json 檔名及讀回、重新配對、空值與 API 錯誤處理；macOS 15.7.7 原生 Shortcuts + 真實 Go API 的 17 項隔離整合驗收全通過。
 - [x] `v0.1.0-alpha.7` 修正 Windows 剪貼簿操作未固定 OS thread、狀態查詢未與讀寫序列化及 CloseClipboard 結果被忽略的問題；維持同一捷徑／API／配對格式。
 - [x] 2026-09-05 使用者回報 alpha.6 iPhone ↔ Windows 核心捷徑傳輸實機測試成功，確認本次修復可用；未將此回報擴張為以下完整平台驗收。
+- [x] `v0.2.0-alpha.5` 修正舊名稱版本自啟在開機時搶走 Agent 埠，造成看似每次重開機需重新配對（見 0.4）。
 - [ ] 在 Windows 11 x64 與實際 iPhone 完成首次安裝、QR 配對、雙向文字、Share Sheet、自啟、重開機與解除安裝驗收。
 - [ ] 在 Ubuntu 26.04 GNOME Wayland 與實際 iPhone 完成相同 E2E。
 - [ ] 實機驗收通過後，才把對應平台從 build candidate 改標為已支援。
@@ -61,6 +62,20 @@ GitHub macOS runner 未登入 iCloud，無法直接執行 Apple Shortcuts 簽署
 本機 dashboard HTML 改用 `Referrer-Policy: same-origin`，使同源表單帶正確 Origin，跨來源連結仍不送 Referer；公開配對頁維持 no-referrer，Origin null／錯誤來源仍拒絕，不放寬 CSRF 邊界。新增回歸驗證一般設定操作與撤銷路由，修正版為 `v0.2.0-alpha.4`，重建完整 Windows／Linux 包；手機捷徑不變，從 alpha.3 升級不需刪除設定或重新安裝捷徑。Windows 實機仍由使用者確認。
 
 本次驗證：新增回歸測試在修正前失敗、修正後通過；Mac Brave 的兩個原生表單按鈕均觸發隔離 Configure callback 並返回設定頁，沒有 403。測試涵蓋四種 action、撤銷路由及 null／跨來源／重複 Origin 拒絕；公開頁仍為 no-referrer。Go race／vet、Windows 測試交叉編譯、捷徑與封裝測試通過。
+
+## 0.4 重開機後需重新配對（2026-10-05，alpha.5）
+
+**問題：** 使用者回報 Tailscale 入口每次重開機都要重新配對。現場證據：HKCU Run 同時保留更名前版本與 TailBlink 兩個自啟，兩者都監聽 `127.0.0.1:17733`，Serve 的兩個 path 也都轉到此埠。開機時舊版先搶到埠，TailBlink 無法啟動；手機請求被舊版以它自己的 token 回 `401 not_paired`。TailBlink 的 token 從未被輪替。
+
+**決策：** Windows Agent 啟動、搶埠之前先移除舊版 HKCU 自啟，若埠上回應的是舊版 Agent，就用舊版設定檔內的 token 呼叫它既有的 `/local/shutdown`，等埠釋放後再監聽。失敗只記 log，不阻止啟動（埠仍被占用時照常回報）。Linux 由 `install.sh` 停用舊版 user service。仍不搬移舊 token、不提供舊名稱別名；舊版 Serve path、設定與檔案不自動刪除。
+
+**替代方案：** 只要求使用者先跑舊版解除安裝程式（現況，已證實容易漏掉）；強制結束舊版程序（會留下殘影通知區圖示，且可能誤殺同名程式）。
+
+**連帶簡化：** 移除 `tools/check_branding.py` 與 CI 步驟。修正必須在程式及執行檔中引用舊名稱，「全樹禁止舊名稱」的規則已不成立；更名早已完成，持續掃描 UTF-32 與巢狀封裝屬過度工程。
+
+另移除無客戶端的 Tailscale 身分認證路徑（`X-TailBlink-Client: shortcuts-v2`／`Tailscale-User-Login`；沒有任何捷徑送出此 header），A 入口只剩 Bearer token。三份重複的 Bearer 比對合併為 `api.BearerMatches`（要求唯一 Authorization header），兩份 loopback 檢查合併為 `webui.RequestIsLoopback`；`config.Store.Update` 內容未變時不重寫設定檔（原本每次開啟或重新整理設定頁都寫檔）；刪除未使用的 `Store.RotateToken`、`Store.Path`、`Memory.SetAvailable`。B 的多層 Bearer 檢查保留：前置檢查避免慢 body 持鎖，鎖內複查防止狀態競態，屬既有 review 修正。
+
+**驗證：** 在使用者 Windows 實機重現：先啟動舊版 Agent，經 Tailscale HTTPS 以 TailBlink token 呼叫 `/tailblink/v1/status` 得 `401 not_paired`；再以自啟方式啟動修正版 Agent，舊版自啟值被移除、舊版程序結束、TailBlink 取得埠，同一請求回 `200`，TailBlink token 指紋前後一致（未重新配對）。Go 全套測試、Windows／Linux／darwin vet、捷徑與封裝 Python 測試、Debian 13 容器安裝／更新／移除（含停用舊版服務斷言）通過；新增 `BearerMatches` 與「設定未變不寫檔」測試。單一唯讀 reviewer 第一輪 `No findings`。未做：實際重開機與 iPhone 捷徑實機操作、Linux race 測試（本機無 cgo）。README 已核對並更新升級說明。
 
 ## 1. 產品目標
 
@@ -498,9 +513,9 @@ Linux 套件包含 `tailblink`、對應 cloudflared 及授權、四支 signed Sh
 
 發布前執行 Go 格式、vet、單元／整合／race 測試、捷徑來源與成品一致性、Windows 原生剪貼簿及 Debian 安裝／更新／移除回歸。macOS 負責解封四支已簽署捷徑，比對全部動作／參數；跨平台建置及驗證不代表完成 iPhone 或桌面 GUI 實機驗收。
 
-`python3 tools/check_branding.py` 對目前追蹤檔名、文字與二進位內容、ZIP／tar.gz 內部項目進行不分大小寫的舊名稱檢查。CI 不保存或產生真實配對 token。新增正式 GitHub Release 與倉庫網址更名是平台操作，不因檔案修改而自動完成。
+CI 不保存或產生真實配對 token。新增正式 GitHub Release 與倉庫網址更名是平台操作，不因檔案修改而自動完成。
 
-本版沒有自動更新。從先前命名版本升級，必須先用原版解除安裝程式移除桌面端，安裝 TailBlink 後重新安裝所需的兩支手機捷徑並配對；不提供舊名稱別名或憑證自動遷移。不要讓兩個命名版本同時執行。正常使用新版時，同一組捷徑不需因簡易隧道重啟而重裝，但必須掃新 QR。
+本版沒有自動更新。從先前命名版本升級時，TailBlink 會自動停用舊版自啟並結束仍在執行的舊版 Agent（見 0.4）；仍建議用原版解除安裝程式清除舊版 Serve path 與檔案。安裝後需重新安裝所需的兩支手機捷徑並配對；不提供舊名稱別名或憑證自動遷移。正常使用新版時，同一組捷徑不需因簡易隧道重啟而重裝，但必須掃新 QR。
 
 ## 12. 後續 Roadmap
 

@@ -88,6 +88,10 @@ func runAgent(executable string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// 必須在搶埠前完成；失敗時由下方 Listen 回報埠被占用。
+	if err := retireLegacyAgent(ctx); err != nil {
+		logger.Warn("legacy_retire_failed", "error", err.Error())
+	}
 
 	agentDone := make(chan error, 1)
 	go func() { agentDone <- service.Run(ctx, agent.ListenAddress) }()
@@ -198,84 +202,79 @@ func openSettings(ctx context.Context, executable string) error {
 	return openURL(result.URL)
 }
 
+const agentService = "tailblink-agent"
+
 func ensureAgent(ctx context.Context, executable string) error {
-	if runningVersion, healthy := localAgentVersion(ctx); healthy {
-		if runningVersion == buildinfo.Version {
+	if service, version, running := localAgent(ctx); running && service == agentService {
+		if version == buildinfo.Version {
 			return nil
 		}
-		if err := stopAgent(ctx); err != nil {
+		configPath, err := config.DefaultPath()
+		if err != nil {
+			return err
+		}
+		if err := stopAgent(ctx, configPath); err != nil {
 			return fmt.Errorf("無法結束舊版 TailBlink Agent: %w", err)
-		}
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) && localHealth(ctx) {
-			timer := time.NewTimer(100 * time.Millisecond)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			case <-timer.C:
-			}
-		}
-		if localHealth(ctx) {
-			return errors.New("舊版 TailBlink Agent 未能結束；請從工作管理員結束 TailBlink 後再試")
 		}
 	}
 	if err := startDetached(executable, "agent"); err != nil {
 		return fmt.Errorf("無法啟動 TailBlink Agent: %w", err)
 	}
-	deadline := time.Now().Add(8 * time.Second)
-	for time.Now().Before(deadline) {
-		timer := time.NewTimer(125 * time.Millisecond)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
-		}
-		if localHealth(ctx) {
-			return nil
-		}
+	started := func() bool {
+		service, _, running := localAgent(ctx)
+		return running && service == agentService
 	}
-	return errors.New("Agent 未能啟動；請確認 127.0.0.1:17733 未被占用，並查看 TailBlink 日誌")
+	if !waitUntil(ctx, 8*time.Second, started) {
+		return errors.New("Agent 未能啟動；請確認 127.0.0.1:17733 未被占用，並查看 TailBlink 日誌")
+	}
+	return nil
 }
 
-func localHealth(ctx context.Context) bool {
-	_, healthy := localAgentVersion(ctx)
-	return healthy
-}
-
-func localAgentVersion(ctx context.Context) (string, bool) {
+// localAgent 回報目前占用 Agent 埠的服務；舊版或其他版本也會回應同一個 health 格式。
+func localAgent(ctx context.Context) (service, version string, running bool) {
 	requestContext, cancel := context.WithTimeout(ctx, 600*time.Millisecond)
 	defer cancel()
 	request, err := http.NewRequestWithContext(requestContext, http.MethodGet, "http://"+agent.ListenAddress+"/v1/health", nil)
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return "", false
-	}
 	var result struct {
 		Status       string `json:"status"`
 		Service      string `json:"service"`
 		AgentVersion string `json:"agent_version"`
 	}
-	if json.NewDecoder(io.LimitReader(response.Body, 32<<10)).Decode(&result) != nil ||
-		result.Status != "ok" || result.Service != "tailblink-agent" {
-		return "", false
+	if response.StatusCode != http.StatusOK ||
+		json.NewDecoder(io.LimitReader(response.Body, 32<<10)).Decode(&result) != nil || result.Status != "ok" {
+		return "", "", false
 	}
-	return result.AgentVersion, true
+	return result.Service, result.AgentVersion, true
 }
 
-func stopAgent(ctx context.Context) error {
-	configPath, err := config.DefaultPath()
-	if err != nil {
-		return err
+// waitUntil 以短間隔輪詢，逾時或 context 取消時回傳 false。
+func waitUntil(ctx context.Context, timeout time.Duration, done func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for !done() {
+		if time.Now().After(deadline) {
+			return false
+		}
+		timer := time.NewTimer(125 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false
+		case <-timer.C:
+		}
 	}
+	return true
+}
+
+// stopAgent 以該 Agent 自己設定檔內的 token 要求結束，並等到埠釋放。
+func stopAgent(ctx context.Context, configPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
@@ -294,6 +293,13 @@ func stopAgent(ctx context.Context) error {
 	response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("Agent 停止請求回傳 HTTP %d", response.StatusCode)
+	}
+	stopped := func() bool {
+		_, _, running := localAgent(ctx)
+		return !running
+	}
+	if !waitUntil(ctx, 5*time.Second, stopped) {
+		return errors.New("Agent 未能結束；請從工作管理員結束後再試")
 	}
 	return nil
 }

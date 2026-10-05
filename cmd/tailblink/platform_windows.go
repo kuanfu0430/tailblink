@@ -198,9 +198,10 @@ func uninstallAction(ctx context.Context, executable string) error {
 	if err != nil {
 		return err
 	}
-	if localHealth(ctx) {
-		_ = stopAgent(ctx)
-		time.Sleep(300 * time.Millisecond)
+	if service, _, running := localAgent(ctx); running && service == agentService {
+		if configPath, err := config.DefaultPath(); err == nil {
+			_ = stopAgent(ctx, configPath)
+		}
 	}
 	helper := target
 	if _, err := os.Stat(helper); err != nil {
@@ -312,6 +313,25 @@ func sameFileContent(left, right string) (bool, error) {
 	return sha256.Sum256(leftData) == sha256.Sum256(rightData), nil
 }
 
+// 更名前版本與 TailBlink 共用 Agent 埠。舊版自啟若在開機時先搶到埠，手機的 TailBlink
+// 請求就會被舊版以它自己的 token 拒絕，看起來像每次重開機都要重新配對。
+const legacyName = "TailClip"
+
+// retireLegacyAgent 移除舊版自啟並請仍在執行的舊版 Agent 結束；不讀取或搬移舊 token 到新版。
+func retireLegacyAgent(ctx context.Context) error {
+	if err := removeRunValue(legacyName); err != nil {
+		return err
+	}
+	if service, _, running := localAgent(ctx); !running || service != strings.ToLower(legacyName)+"-agent" {
+		return nil
+	}
+	base := os.Getenv("LOCALAPPDATA")
+	if base == "" {
+		return errors.New("找不到 LOCALAPPDATA")
+	}
+	return stopAgent(ctx, filepath.Join(base, legacyName, "config.json"))
+}
+
 func ensureAutostart(executable string) error {
 	key, _, err := registry.CreateKey(registry.CURRENT_USER, autostartKeyPath, registry.SET_VALUE)
 	if err != nil {
@@ -344,7 +364,9 @@ func autostartCommand(executable string) string {
 	return syscall.EscapeArg(executable) + " agent"
 }
 
-func removeAutostart() error {
+func removeAutostart() error { return removeRunValue(autostartValue) }
+
+func removeRunValue(name string) error {
 	key, err := registry.OpenKey(registry.CURRENT_USER, autostartKeyPath, registry.SET_VALUE)
 	if errors.Is(err, registry.ErrNotExist) {
 		return nil
@@ -353,7 +375,7 @@ func removeAutostart() error {
 		return fmt.Errorf("無法開啟使用者自啟設定: %w", err)
 	}
 	defer key.Close()
-	if err := key.DeleteValue(autostartValue); err != nil && !errors.Is(err, registry.ErrNotExist) {
+	if err := key.DeleteValue(name); err != nil && !errors.Is(err, registry.ErrNotExist) {
 		return fmt.Errorf("無法移除使用者自啟: %w", err)
 	}
 	return nil

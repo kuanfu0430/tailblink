@@ -106,7 +106,7 @@ func TestPairingTransferRevocationAndIsolation(t *testing.T) {
 			t.Fatal("管理路由外洩", p)
 		}
 	}
-	for name, value := range map[string]string{"Origin": "https://evil.example", "Sec-Fetch-Site": "same-origin", "X-TailBlink-Client": "shortcuts-v2"} {
+	for name, value := range map[string]string{"Origin": "https://evil.example", "Sec-Fetch-Site": "same-origin"} {
 		r := httptest.NewRequest("GET", "https://fixture.trycloudflare.com/v1/status", nil)
 		r.Header.Set("Authorization", "Bearer "+second)
 		r.Header.Set(name, value)

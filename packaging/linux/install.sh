@@ -44,6 +44,9 @@ if ! command -v wl-copy >/dev/null || ! command -v wl-paste >/dev/null; then
   sudo apt-get install -y wl-clipboard || fail "wl-clipboard 安裝失敗。"
 fi
 
+# 更名前版本共用 Agent 埠；保留其服務會在開機時搶走埠，使手機看似每次都要重新配對。
+systemctl --user disable --now tailclip.service >/dev/null 2>&1 || true
+
 port_in_use() {
   local port="$1"
   ss -H -ltn "sport = :${port}" 2>/dev/null | grep -q .
