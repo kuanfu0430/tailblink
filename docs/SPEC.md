@@ -75,7 +75,7 @@ GitHub macOS runner 未登入 iCloud，無法直接執行 Apple Shortcuts 簽署
 
 另移除無客戶端的 Tailscale 身分認證路徑（`X-TailBlink-Client: shortcuts-v2`／`Tailscale-User-Login`；沒有任何捷徑送出此 header），A 入口只剩 Bearer token。三份重複的 Bearer 比對合併為 `api.BearerMatches`（要求唯一 Authorization header），兩份 loopback 檢查合併為 `webui.RequestIsLoopback`；`config.Store.Update` 內容未變時不重寫設定檔（原本每次開啟或重新整理設定頁都寫檔）；刪除未使用的 `Store.RotateToken`、`Store.Path`、`Memory.SetAvailable`。B 的多層 Bearer 檢查保留：前置檢查避免慢 body 持鎖，鎖內複查防止狀態競態，屬既有 review 修正。
 
-**驗證：** 在使用者 Windows 實機重現：先啟動舊版 Agent，經 Tailscale HTTPS 以 TailBlink token 呼叫 `/tailblink/v1/status` 得 `401 not_paired`；再以自啟方式啟動修正版 Agent，舊版自啟值被移除、舊版程序結束、TailBlink 取得埠，同一請求回 `200`，TailBlink token 指紋前後一致（未重新配對）。Go 全套測試、Windows／Linux／darwin vet、捷徑與封裝 Python 測試、Debian 13 容器安裝／更新／移除（含停用舊版服務斷言）通過；新增 `BearerMatches` 與「設定未變不寫檔」測試。單一唯讀 reviewer 第一輪 `No findings`。未做：實際重開機與 iPhone 捷徑實機操作、Linux race 測試（本機無 cgo）。README 已核對並更新升級說明。
+**驗證：** 在使用者 Windows 實機重現：先啟動舊版 Agent，經 Tailscale HTTPS 以 TailBlink token 呼叫 `/tailblink/v1/status` 得 `401 not_paired`；再以自啟方式啟動修正版 Agent，舊版自啟值被移除、舊版程序結束、TailBlink 取得埠，同一請求回 `200`，TailBlink token 指紋前後一致（未重新配對）。Go 全套測試、Windows／Linux／darwin vet、捷徑與封裝 Python 測試、Debian 13 容器安裝／更新／移除（含停用舊版服務斷言）通過；新增 `BearerMatches` 與「設定未變不寫檔」測試。單一唯讀 reviewer 第一輪 `No findings`。發行包由 `448ea1b` 乾淨建置（`vcs.modified=false`、checksum 通過）；在實機以「舊版占埠時雙擊 alpha.5 EXE」走完升級流程，新版接手、設定頁開啟、遠端 status 200，且開設定頁未改動 config.json。未做：實際重開機與 iPhone 捷徑實機操作、Linux race 測試（本機無 cgo）。README 已核對並更新升級說明。
 
 ## 1. 產品目標
 
@@ -503,9 +503,9 @@ Windows alpha 只有在「下載後雙擊一次、至多一次必要 UAC、iPhon
 
 ## 11. 發布
 
-目前設定頁修正版為 **v0.2.0-alpha.4**，Windows 與 Linux 完整包由修正後乾淨來源 commit 重建，實際 commit 記錄於套件內 `SOURCE.txt`。先前 alpha.3 的建置來源為 `d2ec58333f7283d17e269ffeb18cfed34a7896ce`；不覆寫歷史套件的來源追溯記錄。
+目前版本為 **v0.2.0-alpha.5**（重開機重新配對修正，見 0.4），Windows 與 Linux 完整包由乾淨來源 commit `448ea1b` 建置，實際 commit 記錄於套件內 `SOURCE.txt`。先前 alpha.3 的建置來源為 `d2ec58333f7283d17e269ffeb18cfed34a7896ce`；不覆寫歷史套件的來源追溯記錄。
 
-目前 Git 工作樹追蹤 `dist/TailBlink-v0.2.0-alpha.4-windows-x64.zip`、`dist/TailBlink-v0.2.0-alpha.4-linux-x64.tar.gz` 及兩者 `.sha256`。舊版套件只保留在 Git 歷史及既有 Release，不留在目前檔案樹；早期 alpha.6／alpha.7 的相容性及本機建置紀錄不能套用到完整更名版本。
+目前 Git 工作樹追蹤 `dist/TailBlink-v0.2.0-alpha.5-windows-x64.zip`、`dist/TailBlink-v0.2.0-alpha.5-linux-x64.tar.gz` 及兩者 `.sha256`。舊版套件只保留在 Git 歷史及既有 Release，不留在目前檔案樹；早期 alpha.6／alpha.7 的相容性及本機建置紀錄不能套用到完整更名版本。
 
 Windows 套件包含 `TailBlink.exe`、已核對雜湊的 `tailblink-cloudflared-*`、第三方授權、`README-Windows.txt`、`Start-TailBlink.cmd`、`Uninstall-TailBlink.cmd`、四支 signed Shortcuts、`VERSION.txt`、`SOURCE.txt` 與涵蓋全部附帶檔案的 `SHA256SUMS.txt`。完整解壓後直接雙擊 EXE，不要求終端機或 Go toolchain；CMD 入口維持 ASCII／CRLF 及完整引號路徑。
 
